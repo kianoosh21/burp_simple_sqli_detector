@@ -184,4 +184,11 @@ Use only on systems you own or have explicit permission to test (e.g., bug bount
 
 ---
 
+## Screenshots
 
+### `-h` output
+
+- ![Example run 1](1.png)
+- ![Example run 2](2.png)
+
+---
