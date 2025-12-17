@@ -1,193 +1,161 @@
 # Simple SQLi Detector (Burp Extension - Jython 2.7)
 
-A lightweight Burp Suite extension that queues requests and runs a **heuristic SQLi signal check** while keeping the original detection logic untouched.
+A lightweight Burp Suite extension that queues requests and runs a **heuristic SQLi signal check** while preserving the original detection logic.
 
-This extension is designed for speed-of-use in Burp:
-- Right-click a request anywhere you can select it → send it to the extension
-- It runs in a **single-worker job queue** (no blocking your workflow)
-- It highlights hits, writes a helpful comment, and can forward the initiating request to tools like Repeater
+Designed for fast, non-blocking use inside Burp:
+- Right-click any single request → **Send to Simple SQLi Detector**
+- Jobs run in a **single-worker queue** (enqueue as many as you want instantly)
+- Hits are clearly highlighted with red parameter names, request highlighting, and comments
 
 ---
 
 ## What it detects (heuristic)
 
-This extension looks for the pattern:
+The extension checks for this classic error-based SQLi signal:
 
-1. Send **baseline** request (original request)
-2. Mutate **one input at a time** by appending a single quote (`'`)  
-   - if response becomes **500**
-3. Mutate the same input by appending a double single-quote (`''`)  
-   - if response becomes **NOT 500**
+1. Send the **original (baseline)** request  
+2. Append a **single quote (`'`)** to one parameter at a time  
+   → If response becomes **500 Internal Server Error**  
+3. Append **double single-quote (`''`)** to the same parameter  
+   → If response is **NOT 500**
 
-If the pattern matches, the input is reported as a probable SQLi signal.
+If this pattern matches, the parameter is flagged as a **probable SQLi signal**.
 
-> Important: This is **heuristic**, not proof. It’s intended to quickly surface likely candidates for manual verification.
+> **Important**: This is a **heuristic**, not definitive proof. Always verify manually.
 
 ---
 
-## Key features
+## Key Features
 
-### Core workflow
-- **Context menu integration**: Right-click a single request → **Send to Simple SQLi Detector**
-- **Queued execution**: jobs are queued and processed one-by-one (no waiting to enqueue more)
-- **Results UI**:
-  - Jobs table: JobID, host, method, URL, mode, status, hit count
-  - Request viewer: quickly see the initiating request by JobID
-  - Log pane: parameter-by-parameter testing output
-- **Hit visibility**:
-  - Parameters are printed in **red** in the log pane
-  - Original Burp request gets **highlighted red**
-  - A comment is attached explaining the reason
+### Core Workflow
+- **Context menu**: Right-click a request → **Send to Simple SQLi Detector**
+- **Job queue**: Jobs are processed sequentially (one at a time) in the background
+- **Results tab** includes:
+  - Jobs table (JobID, Host, Method, URL, Mode, Status, Hits)
+  - Request viewer (show original request by JobID)
+  - Log pane with detailed per-parameter output
 
-### Modes (same detection logic, different selection/strategy)
-- `-sr / --singleRecursive` (default): tests inputs one-by-one (slowest, most reliable)
-- `-faster`: batch test with single-recursive fallback
-- `-fastest`: batch test with double-quote verification + fallback
+### Hit Reporting
+- Hit parameters printed in **red** in the log pane
+- Original request highlighted **red** in Burp
+- Comment added to the request with hit summary
+- **Show Hits Only** checkbox to filter log noise and focus only on hits + reasons
 
-### Scope
-- Default scope (params)
-- `-c / --cookie-only`
-- `-f / --full` (default selection in the current UI)
+### Modes
+- **singleRecursive** (default): test parameters one-by-one (most reliable)
+- **faster**: batch test all params with single quote, fallback to singleRecursive on 500
+- **fastest**: batch single + double quote verification, fallback if needed
 
-### `--json` behavior (important)
-When **`--json`** is enabled:
-- The extension will run **JSON-only mode**
-- It will **only** test **JSON string leaf values**
-- It will **only** run when the request is **POST**
-- It supports **nested JSON** (paths like `user.profile.name`, arrays, etc.)
+### Scope Options
+- **params-only** – test GET/POST/JSON parameters only
+- **cookie-only** – test cookies only
+- **full** (default) – test parameters + cookies + common headers
 
-If the request is not POST or doesn’t contain valid JSON, it will skip with a log message.
+### `--json` Mode
+When enabled:
+- Only runs on **POST** requests
+- Only tests **string leaf values** in JSON bodies (nested paths supported, e.g. `user.address.street`)
+- Skips if body is not valid JSON
+- Forces singleRecursive mode and disables cookie/header testing
 
-### Send-to tools (from JobID)
-You can forward the *initiating request* for a given JobID to:
-- **Repeater**
-- **Intruder**
-- **Comparer**
+### Auto Mode
+- When checked (default: on), automatically sends **in-scope** requests passing through Proxy to the detector
+- **OPTIONS** preflight requests are automatically skipped
 
-Available via right-click menus on:
-- The **Jobs table**
-- The **Request viewer pane** (the “shown request”)
+### Send to Tools
+From any JobID (right-click on jobs table or request viewer):
+- **Send to Repeater**
+- **Send to Intruder**
+- **Send to Comparer**
 
 ---
 
 ## Requirements
+- Burp Suite (Professional or Community)
+- **Jython 2.7 standalone JAR** configured in Burp (e.g., `jython-standalone-2.7.2.jar` or newer 2.7.x)
 
-- **Burp Suite Professional or Community**
-- **Jython 2.7 standalone JAR** configured in Burp
-  - Typically: `jython-standalone-2.7.2.jar`
-
-> This extension targets Jython (Python 2.7 runtime). It avoids non-ASCII characters to prevent common Jython encoding issues.
+> This extension uses Jython (Python 2.7). Non-ASCII characters are avoided to prevent encoding issues.
 
 ---
 
 ## Installation
-
-1. Download **Jython standalone**:
-   - `jython-standalone-2.7.2.jar`
-
-2. In Burp:
-   - `Extender` → `Options` → `Python Environment`
-   - Set **Location of Jython standalone JAR** to your `jython-standalone-2.7.2.jar`
-
-3. Load the extension:
-   - `Extender` → `Extensions` → `Add`
-   - Extension type: **Python**
-   - Select the extension `.py` file
-
-4. You should now see a new tab:
-   - **Simple SQLi Detector**
+1. Download Jython standalone JAR (version 2.7.x)
+2. In Burp → **Extender** → **Options** → **Python Environment**  
+   → Select your `jython-standalone-*.jar`
+3. **Extender** → **Extensions** → **Add**  
+   → Extension type: **Python**  
+   → Select the `.py` file
+4. New tab appears: **Simple SQLi Detector**
 
 ---
 
 ## Usage
 
-### 1) Send a request to the queue
-- In Proxy / HTTP history / Target / anywhere you can select a request:
-  - Right-click the request
-  - Choose **Send to Simple SQLi Detector**
+### 1. Send a request
+- Right-click any single request (Proxy history, Target, Repeater, etc.)
+- Choose **Send to Simple SQLi Detector**
 
-A new Job row appears with a **JobID** and status **QUEUED**, then **RUNNING**, then **DONE** (or **ERROR**).
+Job appears in the table with a unique **JobID**.
 
-### 2) Tune settings (top bar)
-- **Threads (-t)**: worker threads used for per-parameter tests inside a job
-- **Timeout**: per HTTP call timeout (seconds)
-- **Mode**: singleRecursive / faster / fastest
-- **Scope**: Default / cookie-only / full
-- `--debug`: prints extra debug logs
-- `--json`: JSON-only POST mode (nested supported)
+### 2. Configure (top toolbar)
+- **Threads (-t)**: parallel tests per job (default: 5)
+- **Timeout**: seconds per HTTP request
+- Mode radio buttons
+- Scope radio buttons
+- **json**: enable JSON-only mode
+- **Auto Mode**: auto-scan in-scope proxy traffic
+- **Show Hits Only**: hide normal logs, show only hits and reasons
 
-### 3) View the initiating request by JobID
-- Copy the **JobID**
-- Paste into the **JobID** field
-- Click **Show request (JobID)**
-- The initiating request appears in the Request viewer pane
+### 3. View original request
+- Copy JobID from table
+- Paste into **JobID** field
+- Click **Show request (JobID)** → appears in request pane
 
-### 4) Send the request to Repeater (most common)
-Option A (Jobs table):
-- Right-click a job row
-- Click **Send to Repeater**
+### 4. Forward to other tools
+- Right-click job row → Send to Repeater / Intruder / Comparer  
+  OR
+- Load request by JobID → right-click in request pane → same options
 
-Option B (Request viewer):
-- Ensure the JobID is loaded/shown
-- Right-click inside the Request viewer
-- Click **Send shown request to Repeater**
+### 5. Clear
+- **Clear jobs**: remove all rows and stored requests
+- **Clear results**: empty log and request panes
 
 ---
 
-## Output behavior
-
-When a hit is found:
-- The initiating message is:
-  - highlighted **red**
-  - commented with a summary line per hit
-  - optionally added to the Site Map (implementation dependent)
-- Log pane will show:
-  - tested parameters
-  - hit parameters printed in **red**
-  - reason: `baseline=<x> -> quote=500 -> doublequote!=500`
+## Output When Hit Found
+- Log shows `[HIT] Parameter: <param>` in **red**
+- Reason line: `baseline=X -> quote=500 -> doublequote!=500`
+- Original request gets:
+  - Red highlight
+  - Comment with hit details
 
 ---
 
 ## Troubleshooting
-
-### Extension won’t load / errors about Python environment
-- Confirm Jython is configured:
-  - `Extender → Options → Python Environment`
-- Use a **Jython 2.7 standalone** JAR (e.g., 2.7.2)
-
-### Nothing happens when sending requests
-- Make sure you selected **exactly one** request (context menu requires 1)
-- Check the extension tab log pane for worker/job errors
-
-### `--json` keeps skipping
-- `--json` only runs for **POST** requests
-- Body must be valid JSON (or Content-Type indicates JSON and body parses as JSON)
-
-### Requests time out
-- Increase **Timeout**
-- Reduce **Threads**
-- If the target is slow or rate-limiting, consider adding delay externally (not part of this extension)
+- **Extension fails to load**: verify Jython JAR is correctly set in Extender → Options
+- **No jobs appear**: ensure exactly one request is selected when using context menu
+- **`json` skips everything**: must be POST with valid JSON body
+- **Timeouts**: increase Timeout value or reduce Threads
+- **False positives/negatives**: expected with heuristics – always verify manually
 
 ---
 
 ## Notes / Limitations
-
-- Heuristic detection only; always confirm manually.
-- Network/WAF behavior can cause false positives/negatives (e.g., 500 caused by rate limiting or backend instability).
-- Some Burp versions differ slightly in Intruder API signatures; the extension includes a fallback.
+- Heuristic only – not exhaustive blind/time-based detection
+- No delay/rate-limiting controls (add externally if needed)
+- Works best on applications that return 500 on unhandled SQL errors
 
 ---
 
-## Legal / Ethical
-
-Use only on systems you own or have explicit permission to test (e.g., bug bounty scopes). You are responsible for compliance with program rules and local laws.
+## Legal / Ethical Reminder
+Use only on targets you have explicit permission to test. Comply with all applicable laws and program rules.
 
 ---
 
 ## Screenshots
 
 
-- ![Example run 1](a.png)
-- ![Example run 2](b.png)
+- ![Example run 1](1.png)
+- ![Example run 2](2.png)
+- ![Example run 2](3.png)
 
----
