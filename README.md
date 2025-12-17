@@ -184,6 +184,4 @@ Use only on systems you own or have explicit permission to test (e.g., bug bount
 
 ---
 
-## License
 
-Add your preferred license here (MIT/Apache-2.0/etc).
