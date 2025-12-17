@@ -51,7 +51,7 @@ If this pattern matches, the parameter is flagged as a **probable SQLi signal**.
 - **cookie-only** – test cookies only
 - **full** (default) – test parameters + cookies + common headers
 
-### `--json` Mode
+### `json` Mode
 When enabled:
 - Only runs on **POST** requests
 - Only tests **string leaf values** in JSON bodies (nested paths supported, e.g. `user.address.street`)
