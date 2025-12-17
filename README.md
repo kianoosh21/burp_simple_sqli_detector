@@ -187,7 +187,7 @@ Use only on systems you own or have explicit permission to test (e.g., bug bount
 ## Screenshots
 
 
-- ![Example run 1](1.png)
-- ![Example run 2](2.png)
+- ![Example run 1](a.png)
+- ![Example run 2](b.png)
 
 ---
